@@ -238,6 +238,18 @@ agent-browser --allow-file-access open file:///path/to/page.html
 agent-browser screenshot output.png
 ```
 
+### Stealth Mode
+
+```bash
+# Enable stealth mode to avoid bot detection
+agent-browser --stealth open https://example.com
+
+# Or via environment variable
+AGENT_BROWSER_STEALTH=1 agent-browser open https://example.com
+```
+
+Stealth mode hides automation indicators (`navigator.webdriver`, `HeadlessChrome` UA, empty plugins) to reduce bot detection. Best-effort evasion — works for most sites but may not bypass all anti-bot systems. Chromium only.
+
 ### iOS Simulator (Mobile Safari)
 
 ```bash

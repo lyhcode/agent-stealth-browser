@@ -129,6 +129,96 @@ describe('Launch Options', () => {
     });
   });
 
+  describe('stealth mode', () => {
+    it('should hide navigator.webdriver with stealth enabled', async () => {
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+        stealth: true,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const webdriver = await page.evaluate(() => navigator.webdriver);
+      expect(webdriver).toBeUndefined();
+    });
+
+    it('should mock window.chrome.runtime with stealth enabled', async () => {
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+        stealth: true,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const hasRuntime = await page.evaluate(() => {
+        return !!(window as any).chrome && !!(window as any).chrome.runtime;
+      });
+      expect(hasRuntime).toBe(true);
+    });
+
+    it('should mock navigator.plugins with stealth enabled', async () => {
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+        stealth: true,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const pluginCount = await page.evaluate(() => navigator.plugins.length);
+      expect(pluginCount).toBeGreaterThan(0);
+    });
+
+    it('should strip HeadlessChrome from UA with stealth enabled', async () => {
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+        stealth: true,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const ua = await page.evaluate(() => navigator.userAgent);
+      expect(ua).not.toContain('HeadlessChrome');
+      expect(ua).toContain('Chrome');
+    });
+
+    it('should preserve custom userAgent when stealth is enabled', async () => {
+      const customUA = 'StealthCustomBot/1.0';
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+        stealth: true,
+        userAgent: customUA,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const ua = await page.evaluate(() => navigator.userAgent);
+      expect(ua).toBe(customUA);
+    });
+
+    it('should show webdriver=true without stealth (default behavior)', async () => {
+      browser = new BrowserManager();
+      await browser.launch({
+        headless: true,
+      });
+
+      const page = browser.getPage();
+      await page.goto('about:blank');
+
+      const webdriver = await page.evaluate(() => navigator.webdriver);
+      expect(webdriver).toBe(true);
+    });
+  });
+
   describe('combined options', () => {
     it('should launch with args, user-agent, and proxy combined', async () => {
       const customUA = 'CombinedTestBot/2.0';

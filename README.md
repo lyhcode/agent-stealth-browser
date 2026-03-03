@@ -479,6 +479,7 @@ This is useful for multimodal AI models that can reason about visual layout, unl
 | `--proxy-bypass <hosts>` | Hosts to bypass proxy (or `AGENT_BROWSER_PROXY_BYPASS` env) |
 | `--ignore-https-errors` | Ignore HTTPS certificate errors (useful for self-signed certs) |
 | `--allow-file-access` | Allow file:// URLs to access local files (Chromium only) |
+| `--stealth` | Enable stealth mode to avoid bot detection (or `AGENT_BROWSER_STEALTH` env) |
 | `-p, --provider <name>` | Cloud browser provider (or `AGENT_BROWSER_PROVIDER` env) |
 | `--device <name>` | iOS device name, e.g. "iPhone 15 Pro" (or `AGENT_BROWSER_IOS_DEVICE` env) |
 | `--json` | JSON output (for agents) |
@@ -745,6 +746,33 @@ The `--allow-file-access` flag adds Chromium flags (`--allow-file-access-from-fi
 - Load local resources (images, scripts, stylesheets)
 
 **Note:** This flag only works with Chromium. For security, it's disabled by default.
+
+## Stealth Mode
+
+Avoid bot detection when automating websites:
+
+```bash
+# Enable stealth mode
+agent-browser --stealth open https://example.com
+
+# Or via environment variable
+AGENT_BROWSER_STEALTH=1 agent-browser open https://example.com
+```
+
+Stealth mode applies the following evasions (Chromium only):
+
+- Removes `navigator.webdriver` flag
+- Adds `--disable-blink-features=AutomationControlled` launch arg
+- Mocks `window.chrome.runtime` with stub methods
+- Mocks `navigator.plugins` with 3 default Chrome plugins
+- Ensures `navigator.languages` is non-empty
+- Patches `Permissions.prototype.query` for notifications
+- Overrides WebGL vendor/renderer to hide SwiftShader
+- Strips `HeadlessChrome` from User-Agent (both HTTP header and JS API)
+- Filters `HeadlessChrome` from `navigator.userAgentData.brands`
+- Ensures `HTMLIFrameElement.contentWindow.chrome` exists
+
+**Note:** Stealth evasions are best-effort. They cover common detection vectors but may not bypass all anti-bot systems. Cloud providers (Kernel, Browserbase) handle stealth independently.
 
 ## CDP Mode
 

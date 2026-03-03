@@ -38,6 +38,7 @@ export interface LaunchCommand extends BaseCommand {
   confirmActions?: string[];
   // Auto-load state file for session persistence
   autoStateFilePath?: string;
+  stealth?: boolean; // Enable stealth mode to avoid bot detection
 }
 
 export interface NavigateCommand extends BaseCommand {

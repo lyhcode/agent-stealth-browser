@@ -2345,6 +2345,7 @@ Options:
                              e.g., --proxy-bypass "localhost,*.internal.com"
   --ignore-https-errors      Ignore HTTPS certificate errors
   --allow-file-access        Allow file:// URLs to access local files (Chromium only)
+  --stealth                  Enable stealth mode to avoid bot detection (or AGENT_BROWSER_STEALTH)
   -p, --provider <name>      Browser provider: ios, browserbase, kernel, browseruse
   --device <name>            iOS device name (e.g., "iPhone 15 Pro")
   --json                     JSON output

@@ -22,6 +22,7 @@ import type { LaunchCommand, TraceEvent } from './types.js';
 import { type RefMap, type EnhancedSnapshot, getEnhancedSnapshot, parseRef } from './snapshot.js';
 import { safeHeaderMerge } from './state-utils.js';
 import { isDomainAllowed, installDomainFilter, parseDomainList } from './domain-filter.js';
+import { installStealth, getStealthArgs } from './stealth.js';
 import {
   getEncryptionKey,
   isEncryptedPayload,
@@ -119,6 +120,7 @@ export class BrowserManager {
   private colorScheme: 'light' | 'dark' | 'no-preference' | null = null;
   private downloadPath: string | null = null;
   private allowedDomains: string[] = [];
+  private stealthEnabled: boolean = false;
 
   /**
    * Set the persistent color scheme preference.
@@ -257,6 +259,16 @@ export class BrowserManager {
   }
 
   /**
+   * Install stealth evasion scripts on a context if stealth mode is enabled.
+   * Should be called after ensureDomainFilter on the same context.
+   */
+  private async ensureStealth(context: BrowserContext): Promise<void> {
+    if (this.stealthEnabled) {
+      await installStealth(context);
+    }
+  }
+
+  /**
    * After installing the domain filter, verify existing pages are on allowed
    * domains. Pages that pre-date the filter (e.g. CDP/cloud connect) may have
    * already navigated to disallowed domains. Navigate them to about:blank.
@@ -342,6 +354,7 @@ export class BrowserManager {
       this.contexts.push(context);
       this.setupContextTracking(context);
       await this.ensureDomainFilter(context);
+      await this.ensureStealth(context);
     } else {
       return;
     }
@@ -1249,6 +1262,8 @@ export class BrowserManager {
       }
     }
 
+    this.stealthEnabled = options.stealth ?? false;
+
     if (this.downloadPath && (cdpEndpoint || options.autoConnect)) {
       const warning =
         "--download-path is ignored when connecting via CDP or auto-connect (downloads use the remote browser's configuration)";
@@ -1320,16 +1335,18 @@ export class BrowserManager {
     const launcher =
       browserType === 'firefox' ? firefox : browserType === 'webkit' ? webkit : chromium;
 
-    // Build base args array with file access flags if enabled
+    // Build base args array with file access flags and stealth args if enabled
     // --allow-file-access-from-files: allows file:// URLs to read other file:// URLs via XHR/fetch
     // --allow-file-access: allows the browser to access local files in general
     const fileAccessArgs = options.allowFileAccess
       ? ['--allow-file-access-from-files', '--allow-file-access']
       : [];
+    const stealthArgs = this.stealthEnabled && browserType === 'chromium' ? getStealthArgs() : [];
+    const extraArgs = [...stealthArgs, ...fileAccessArgs];
     const baseArgs = options.args
-      ? [...fileAccessArgs, ...options.args]
-      : fileAccessArgs.length > 0
-        ? fileAccessArgs
+      ? [...extraArgs, ...options.args]
+      : extraArgs.length > 0
+        ? extraArgs
         : undefined;
 
     // Auto-detect args that control window size and disable viewport emulation
@@ -1462,10 +1479,22 @@ export class BrowserManager {
         }
       }
 
+      // In stealth mode with headless, fix the HTTP-level User-Agent to strip HeadlessChrome.
+      // The init script handles navigator.userAgent in JS, but the HTTP header needs this too.
+      let effectiveUserAgent = options.userAgent;
+      if (this.stealthEnabled && !options.userAgent && (options.headless ?? true)) {
+        const tmpPage = await this.browser.newPage();
+        const defaultUA = (await tmpPage.evaluate('navigator.userAgent')) as string;
+        await tmpPage.close();
+        if (defaultUA.includes('HeadlessChrome')) {
+          effectiveUserAgent = defaultUA.replace(/HeadlessChrome/g, 'Chrome');
+        }
+      }
+
       context = await this.browser.newContext({
         viewport,
         extraHTTPHeaders: options.headers,
-        userAgent: options.userAgent,
+        userAgent: effectiveUserAgent,
         storageState,
         ...(options.proxy && { proxy: options.proxy }),
         ignoreHTTPSErrors: options.ignoreHTTPSErrors ?? false,
@@ -1477,6 +1506,7 @@ export class BrowserManager {
     this.contexts.push(context);
     this.setupContextTracking(context);
     await this.ensureDomainFilter(context);
+    await this.ensureStealth(context);
 
     const page = context.pages()[0] ?? (await context.newPage());
     await this.sanitizeExistingPages([page]);
@@ -1554,6 +1584,7 @@ export class BrowserManager {
         this.contexts.push(context);
         this.setupContextTracking(context);
         await this.ensureDomainFilter(context);
+        await this.ensureStealth(context);
       }
 
       await this.sanitizeExistingPages(allPages);
@@ -1814,6 +1845,7 @@ export class BrowserManager {
     this.contexts.push(context);
     this.setupContextTracking(context);
     await this.ensureDomainFilter(context);
+    await this.ensureStealth(context);
 
     const page = await context.newPage();
     // Only add if not already tracked (setupContextTracking may have already added it via 'page' event)

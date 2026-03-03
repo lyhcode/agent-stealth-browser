@@ -41,6 +41,7 @@ pub struct Config {
     pub action_policy: Option<String>,
     pub confirm_actions: Option<String>,
     pub confirm_interactive: Option<bool>,
+    pub stealth: Option<bool>,
 }
 
 impl Config {
@@ -82,6 +83,7 @@ impl Config {
             action_policy: other.action_policy.or(self.action_policy),
             confirm_actions: other.confirm_actions.or(self.confirm_actions),
             confirm_interactive: other.confirm_interactive.or(self.confirm_interactive),
+            stealth: other.stealth.or(self.stealth),
         }
     }
 }
@@ -234,6 +236,7 @@ pub struct Flags {
     pub action_policy: Option<String>,
     pub confirm_actions: Option<String>,
     pub confirm_interactive: bool,
+    pub stealth: bool,
 
     // Track which launch-time options were explicitly passed via CLI
     // (as opposed to being set only via environment variables)
@@ -333,6 +336,8 @@ pub fn parse_flags(args: &[String]) -> Flags {
             .or(config.confirm_actions),
         confirm_interactive: env_var_is_truthy("AGENT_BROWSER_CONFIRM_INTERACTIVE")
             || config.confirm_interactive.unwrap_or(false),
+        stealth: env_var_is_truthy("AGENT_BROWSER_STEALTH")
+            || config.stealth.unwrap_or(false),
         cli_executable_path: false,
         cli_extensions: false,
         cli_profile: false,
@@ -534,6 +539,11 @@ pub fn parse_flags(args: &[String]) -> Flags {
                 flags.confirm_interactive = val;
                 if consumed { i += 1; }
             }
+            "--stealth" => {
+                let (val, consumed) = parse_bool_arg(args, i);
+                flags.stealth = val;
+                if consumed { i += 1; }
+            }
             "--config" => {
                 // Already handled by load_config(); skip the value
                 i += 1;
@@ -561,6 +571,7 @@ pub fn clean_args(args: &[String]) -> Vec<String> {
         "--annotate",
         "--content-boundaries",
         "--confirm-interactive",
+        "--stealth",
     ];
     // Global flags that always take a value (need to skip the next arg too)
     const GLOBAL_FLAGS_WITH_VALUE: &[&str] = &[
